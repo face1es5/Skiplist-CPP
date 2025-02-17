@@ -297,44 +297,31 @@ bool SkipList<K, V>::is_valid_string(const std::string& str) {
 // Delete element from skip list 
 template<typename K, typename V> 
 void SkipList<K, V>::delete_element(K key) {
-
-    mtx.lock();
-    Node<K, V> *current = this->_header; 
-    Node<K, V> *update[_max_level+1];
-    memset(update, 0, sizeof(Node<K, V>*)*(_max_level+1));
+    std::unique_lock<std::mutex> lock(mtx);
+    Node<K, V> *current = this->_header;
+    bool existed = false;
 
     // start from highest level of skip list
     for (int i = _skip_list_level; i >= 0; i--) {
         while (current->forward[i] !=NULL && current->forward[i]->get_key() < key) {
             current = current->forward[i];
         }
-        update[i] = current;
+        Node<K, V> *next = current->forward[i];
+        if (!existed && next && next->get_key() == key)
+            existed = true;
+
+        if (existed) {
+            current->forward[i] = next->forward[i];
+            if (i == 0) // remove real node in level 0
+                delete next;
+        }
     }
 
-    current = current->forward[0];
-    if (current != NULL && current->get_key() == key) {
-       
-        // start for lowest level and delete the current node of each level
-        for (int i = 0; i <= _skip_list_level; i++) {
-
-            // if at level i, next node is not target node, break the loop.
-            if (update[i]->forward[i] != current) 
-                break;
-
-            update[i]->forward[i] = current->forward[i];
-        }
-
-        // Remove levels which have no elements
-        while (_skip_list_level > 0 && _header->forward[_skip_list_level] == 0) {
-            _skip_list_level --; 
-        }
-
-        std::cout << "Successfully deleted key "<< key << std::endl;
-        delete current;
-        _element_count --;
+    if (existed) {
+        _element_count--;
+        while(_skip_list_level > 0 && !_header->forward[_skip_list_level])
+            _skip_list_level--;
     }
-    mtx.unlock();
-    return;
 }
 
 // Search for element in skip list 
