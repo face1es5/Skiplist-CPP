@@ -393,12 +393,13 @@ SkipList<K, V>::~SkipList() {
         _file_reader.close();
     }
 
-    //递归删除跳表链条
-    if(_header->forward[0]!=nullptr){
-        clear(_header->forward[0]);
+    Node<K, V> *current = _header->forward[0];
+    while(current) {
+      _header->forward[0] = current->forward[0];
+      delete current;
+      current = _header->forward[0];
     }
-    delete(_header);
-    
+    delete _header;
 }
 template <typename K, typename V>
 void SkipList<K, V>::clear(Node<K, V> * cur)
